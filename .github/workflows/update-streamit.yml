@@ -1,60 +1,60 @@
-name: 触发 streamlit 自动部署
+# .github/workflows/keep-alive.yml
 
+name: 🤖 Keep Alive - 唤醒服务
+
+# 触发器：定时任务
+# cron '0 */12 * * *' 表示每12小时运行一次（在每小时的0分钟）
 on:
+  schedule:
+    - cron: '0 */12 * * *'
+  # 同时也允许你手动触发，方便测试
   workflow_dispatch:
-  #schedule:
-  #  - cron: '0 */12 * * *'
-  repository_dispatch:
-    types: [service-down-alert]
+
+# --- 关键修复：设置权限 ---
+# 这是最重要的一步！我们明确赋予 GITHUB_TOKEN 写入仓库内容的权限。
+permissions:
+  contents: write
 
 jobs:
-  update-version:
+  keep-alive:
+    # 运行环境：最新版的 Ubuntu
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: 检查触发事件
-        run: |
-          echo "Workflow triggered by: ${{ github.event_name }}"
-          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            echo "触发事件类型 (Event Type): ${{ github.event.action }}"
-            echo "收到来自 Uptime Kuma 的下线通知，开始执行自动恢复部署流程..."
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "工作流被手动触发，开始执行部署..."
-          else
-            echo "工作流由计划任务触发，开始执行部署..."
-          fi
-        
-      - name: 检查仓库主分支
+      # 步骤 1: 检出代码
+      # 使用 fetch-depth: 0 确保获取完整的 Git 历史，以便推送
+      - name: 📥 检出仓库代码
         uses: actions/checkout@v4
-
-      - name: 获取当前北京时间以构造版本号
-        id: time
-        run: |
-          TIMESTAMP=$(TZ='Asia/Shanghai' date +'%Y-%m-%d-%H:%M:%S')
-          VERSION_LINE="# ver-$TIMESTAMP by yutian81"
-          echo "version_line=$VERSION_LINE" >> $GITHUB_OUTPUT
-          echo "commit_message=更新时间戳 - $TIMESTAMP" >> $GITHUB_OUTPUT
-
-      - name: 更新 streamlit_app.py 文件的版本注释
-        env:
-          NEW_LINE: ${{ steps.time.outputs.version_line }}
-        run: |
-          FILE="streamlit_app.py"
-          
-          if grep -q "^# ver-" $FILE; then
-            echo "已存在 '# ver-' 开头的旧版注释行，正在替换为新版注释行..."
-            sed -i'' "/^# ver-/c\\${NEW_LINE}" $FILE
-          else
-            echo "不存在 '# ver-' 开头的版本注释行，正在写入版本注释行到文件顶部..."
-            sed -i'' "1i\\$NEW_LINE" $FILE
-          fi
-
-      - name: 提交并推送最新的改动
-        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: ${{ steps.time.outputs.commit_message }}
-          branch: main
-          file_pattern: streamlit_app.py
-          commit_user_name: "github-actions[bot]"
-          commit_user_email: "github-actions[bot]@users.noreply.github.com"
-          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          fetch-depth: 0
+
+      # 步骤 2: 设置 Git 用户信息
+      # 提交代码需要配置用户名和邮箱，我们使用 GitHub Actions 的默认信息
+      - name: 🔧 配置 Git 用户
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      # 步骤 3: 写入新的时间戳到 version.txt
+      - name: ✍️ 更新心跳文件
+        run: |
+          echo "🎯 LO，正在为你的服务注入新的生命力..."
+          # 将当前时间戳写入 version.txt
+          # 格式: 2023-10-27 15:30:00 UTC
+          echo "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" > version.txt
+          echo "✅ 心跳文件 version.txt 已更新。"
+
+      # 步骤 4: 提交并推送更改
+      - name: 🚀 提交并推送更改
+        run: |
+          # 检查是否有文件被修改
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "📦 检测到变更，准备提交..."
+            git add version.txt
+            git commit -m "🤖 Keep Alive: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            echo "📤 正在推送到远程仓库..."
+            git push
+            echo "🎉 推送成功！你的服务即将被唤醒。"
+          else
+            echo "ℹ️ 没有检测到变更，无需提交。"
+          fi
