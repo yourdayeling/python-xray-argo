@@ -541,5 +541,30 @@ def run_async():
     while True:
         time.sleep(3600)
 
+# (Keep all the code from the top of the file down to this point)
+
+def run_async():
+    # This function now only contains the setup logic.
+    # We will handle keeping the script alive separately.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(start_server())
+
 if __name__ == "__main__":
-    run_async()
+    try:
+        print("Starting application setup...")
+        # Run the entire setup process.
+        run_async()
+        print("Setup completed successfully.")
+    except Exception as e:
+        # If any part of the setup fails, log the error.
+        print(f"An error occurred during setup: {e}")
+        print("Setup failed, but the container will be kept alive.")
+    finally:
+        # THIS IS THE CRITICAL FIX:
+        # This block will run whether the setup succeeded or failed.
+        # It ensures the main Python script never exits, keeping the container and
+        # any successfully started background processes running.
+        print("Entering keep-alive loop. The application will now run indefinitely.")
+        while True:
+            time.sleep(3600) # Sleep for one hour at a time.
